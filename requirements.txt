@@ -1,1 +1,3 @@
 deep-translator
+tesseract-ocr
+tesseract-ocr-vie
