@@ -9,12 +9,6 @@ CHOSEONG_MAP = ['r', 'R', 's', 'e', 'E', 'f', 'a', 'q', 'Q', 't', 'T', 'd', 'w',
 JUNGSEONG_MAP = ['k', 'o', 'i', 'O', 'j', 'p', 'u', 'P', 'h', 'hk', 'ho', 'hl', 'y', 'n', 'nj', 'np', 'nl', 'b', 'm', 'ml', 'l']
 JONGSEONG_MAP = ['', 'r', 'R', 'rt', 's', 'sw', 'sg', 'e', 'f', 'fr', 'fa', 'fq', 'ft', 'fx', 'fv', 'fg', 'a', 'q', 'qt', 't', 'T', 'd', 'w', 'c', 'z', 'x', 'v', 'g']
 
-def translate_vi_to_ko(text):
-    try:
-        return GoogleTranslator(source='vi', target='ko').translate(text)
-    except:
-        return None
-
 def hangul_to_qwerty(korean_text):
     result = ""
     for char in korean_text:
@@ -29,68 +23,78 @@ def hangul_to_qwerty(korean_text):
     return result
 
 # --- GIAO DIỆN WEB ---
-st.title("🇰🇷 Công Cụ Gõ Tiếng Hàn Siêu Cấp")
-st.write("Hỗ trợ dịch từ văn bản và **DÁN ẢNH TRỰC TIẾP** từ bộ nhớ tạm!")
+st.title("🇰🇷 Công Cụ Tiếng Hàn Đa Năng")
+st.write("Hỗ trợ lấy cách gõ phím hoặc Dịch trực tiếp từ ảnh trong Game/Phim!")
 
-tab1, tab2 = st.tabs(["✍️ Nhập văn bản", "🖼️ Dán ảnh & Dịch (Giống Google)"])
+# Công tắc chọn chế độ
+che_do = st.radio(
+    "⚙️ Chọn mục đích sử dụng của bạn:",
+    ("🇻🇳 Việt ➡️ 🇰🇷 Hàn (Để lấy cách gõ phím)", "🇰🇷 Hàn ➡️ 🇻🇳 Việt (Để tra nghĩa tiếng Việt)")
+)
 
-# --- TAB 1: DỊCH CHỮ (CƠ BẢN) ---
+tab1, tab2 = st.tabs(["✍️ Nhập văn bản", "🖼️ Dán ảnh & Dịch"])
+
+# --- TAB 1: NHẬP VĂN BẢN ---
 with tab1:
-    tu_viet = st.text_input("Nhập câu Tiếng Việt vào đây:")
-    if st.button("Dịch & Chuyển đổi", type="secondary"):
-        if tu_viet:
+    tu_nhap = st.text_input("Nhập nội dung vào đây:")
+    if st.button("Dịch ngay", type="secondary"):
+        if tu_nhap:
             with st.spinner('Đang dịch...'):
-                tu_han = translate_vi_to_ko(tu_viet)
-                if tu_han:
-                    chuoi_phim = hangul_to_qwerty(tu_han)
-                    st.success("Thành công!")
-                    st.subheader(f"Tiếng Hàn: {tu_han}")
-                    st.subheader(f"Cách gõ: {chuoi_phim}")
-                else:
+                try:
+                    if "Việt ➡️ Hàn" in che_do:
+                        ket_qua = GoogleTranslator(source='vi', target='ko').translate(tu_nhap)
+                        st.success("Thành công!")
+                        st.subheader(f"Tiếng Hàn: {ket_qua}")
+                        st.subheader(f"Cách gõ: {hangul_to_qwerty(ket_qua)}")
+                    else:
+                        ket_qua = GoogleTranslator(source='ko', target='vi').translate(tu_nhap)
+                        st.success("Thành công!")
+                        st.subheader(f"Nghĩa Tiếng Việt: {ket_qua}")
+                except:
                     st.error("Có lỗi xảy ra. Vui lòng thử lại.")
         else:
             st.warning("Bạn chưa nhập từ nào!")
 
-# --- TAB 2: DÁN ẢNH & DỊCH (PRO) ---
+# --- TAB 2: DÁN ẢNH ---
 with tab2:
-    st.info("💡 **HƯỚNG DẪN:** Bạn chỉ cần Copy ảnh chụp màn hình chứa tiếng Việt (ví dụ dùng Print Screen hoặc Snipping Tool), sau đó bấm nút dán màu đỏ ở dưới.")
+    st.info("💡 Copy ảnh có chứa chữ và bấm nút đỏ bên dưới để dán.")
     
-    # Khu vực nút bấm Dán ảnh (Custom màu sắc cho bắt mắt)
-    st.write("**Bấm nút dưới đây để đưa ảnh vào:**")
     paste_result = paste_image_button(
         label="📋 Bấm vào đây để Dán ảnh (Paste)",
-        background_color="#FF4B4B", # Màu đỏ Streamlit cho nổi bật
+        background_color="#FF4B4B",
         hover_background_color="#FF3333"
     )
     
-    # Xử lý nếu đã nhận được ảnh từ nút dán
     image = None
     if paste_result.image_data is not None:
         image = paste_result.image_data
 
     if image is not None:
-        # Hiển thị ảnh
         st.image(image, caption="Ảnh bạn vừa dán lên", use_container_width=True)
         
-        # Nút bấm chính thức để xử lý
         if st.button("Quét chữ & Dịch", type="primary"):
-            with st.spinner('Đang dùng AI quét chữ tiếng Việt trong ảnh...'):
+            with st.spinner('Đang dùng AI quét chữ trong ảnh...'):
                 try:
-                    # Đọc chữ từ ảnh (lang='vie' là tiếng Việt)
-                    extracted_text = pytesseract.image_to_string(image, lang='vie+kor').strip()
+                    # Xác định ngôn ngữ quét ảnh dựa theo chế độ
+                    ngon_ngu_quet = 'vie' if "Việt ➡️ Hàn" in che_do else 'kor'
                     
-                    if extracted_text:
+                    text_quet = pytesseract.image_to_string(image, lang=ngon_ngu_quet).strip()
+                    
+                    if text_quet:
                         st.write("**Chữ máy tính đọc được:**")
-                        st.info(extracted_text)
+                        st.info(text_quet)
                         
-                        # Dịch chữ vừa quét được
-                        tu_han = translate_vi_to_ko(extracted_text)
-                        if tu_han:
-                            chuoi_phim = hangul_to_qwerty(tu_han)
+                        # Dịch theo chế độ
+                        if "Việt ➡️ Hàn" in che_do:
+                            ket_qua = GoogleTranslator(source='vi', target='ko').translate(text_quet)
                             st.success("Đã dịch thành công!")
-                            st.subheader(f"Tiếng Hàn: {tu_han}")
-                            st.subheader(f"Cách gõ: {chuoi_phim}")
+                            st.subheader(f"Tiếng Hàn: {ket_qua}")
+                            st.subheader(f"Cách gõ: {hangul_to_qwerty(ket_qua)}")
+                        else:
+                            ket_qua = GoogleTranslator(source='ko', target='vi').translate(text_quet)
+                            st.success("Đã dịch thành công!")
+                            st.subheader(f"Nghĩa Tiếng Việt: {ket_qua}")
                     else:
-                        st.warning("Máy không tìm thấy chữ nào trong ảnh. Bạn thử dùng ảnh nét hơn xem sao nhé!")
+                        st.warning("Máy không đọc được chữ nào. Bạn thử ảnh nét hơn nhé!")
                 except Exception as e:
-                    st.error(f"Lỗi hệ thống: {e}. Bạn hãy đảm bảo đã Reboot lại app trên Streamlit Cloud nhé.")
+                    st.error(f"Lỗi hệ thống: {e}")
