@@ -24,25 +24,22 @@ def hangul_to_qwerty(korean_text):
     return result
 
 # --- GIAO DIỆN WEB ---
-# Thêm tham số layout="wide" để trang web giãn rộng tràn viền
 st.set_page_config(page_title="Công Cụ Dịch Thuật Siêu Cấp 2.0", layout="wide") 
 
 st.title("🇰🇷 Công Cụ Dịch Đa Năng PRO 2.0")
 st.write("Phiên bản **SIÊU CẤP 2.0** chuyên trị chữ trong Game/Phim/Ảnh phức tạp!")
 
-# Đưa nút chọn chế độ ra giữa trang
+# Bạn có thể thoải mái sửa chữ ở đây, miễn là giữ lại chữ "Lấy cách gõ phím"
 che_do = st.radio(
     "⚙️ Bạn muốn làm gì hôm nay?",
-    ("🇻🇳 Việt ➡️ 🇰🇷 Hàn (Lấy cách gõ phím)", "🇰🇷 Hàn ➡️ 🇻🇳 Việt (Tra nghĩa từ ảnh Game/Phim)"),
-    horizontal=True # Đặt nằm ngang cho đẹp
+    ("VN Việt ➡️ KR Hàn (Lấy cách gõ phím)", "KR Hàn ➡️ VN Việt (Tra nghĩa từ ảnh Game/Phim)"),
+    horizontal=True
 )
 
-st.divider() # Đường gạch ngang phân cách
+st.divider()
 
-# --- CHIA 2 CỘT TỶ LỆ 1:1 ---
 col1, col2 = st.columns(2, gap="large")
 
-# CỘT BÊN TRÁI: NHẬP VĂN BẢN
 with col1:
     st.subheader("✍️ Dịch từ Văn bản")
     tu_nhap = st.text_input("Nhập nội dung cần dịch:")
@@ -51,7 +48,8 @@ with col1:
         if tu_nhap:
             with st.spinner('Đang dịch...'):
                 try:
-                    if "Việt ➡️ Hàn" in che_do:
+                    # Đã sửa lại điều kiện kiểm tra thông minh hơn
+                    if "Lấy cách gõ phím" in che_do:
                         ket_qua = GoogleTranslator(source='vi', target='ko').translate(tu_nhap)
                         st.success("Dịch thành công!")
                         st.write("**Tiếng Hàn:**")
@@ -68,7 +66,6 @@ with col1:
         else: 
             st.warning("Bạn chưa nhập từ nào!")
 
-# CỘT BÊN PHẢI: DÁN ẢNH
 with col2:
     st.subheader("🖼️ Dịch từ Hình ảnh")
     st.info("💡 Copy vùng ảnh chứa chữ, bấm nút đỏ bên dưới để Dán (Paste).")
@@ -80,11 +77,12 @@ with col2:
         st.image(image_data, caption="Ảnh bạn vừa dán lên", use_container_width=True)
         
         if st.button("Quét & Dịch SIÊU CẤP 2.0", type="primary"):
-            with st.spinner('Đang kích hoạt bộ não AI Siêu Cấp...'):
+            with st.spinner('Đang kích hoạt bộ não AI...'):
                 try:
                     img_np = np.array(image_data)
                     
-                    if "Việt ➡️ Hàn" in che_do:
+                    # Đã sửa lại điều kiện kiểm tra thông minh hơn
+                    if "Lấy cách gõ phím" in che_do:
                         reader = easyocr.Reader(['vi', 'en'], gpu=False)
                     else:
                         reader = easyocr.Reader(['ko', 'en'], gpu=False)
@@ -96,7 +94,8 @@ with col2:
                         st.write("**Văn bản máy đọc được:**")
                         st.success(final_extracted_text)
                         
-                        if "Việt ➡️ Hàn" in che_do:
+                        # Đã sửa lại điều kiện kiểm tra thông minh hơn
+                        if "Lấy cách gõ phím" in che_do:
                             ket_qua = GoogleTranslator(source='vi', target='ko').translate(final_extracted_text)
                             st.write("**Tiếng Hàn:**")
                             st.info(ket_qua)
