@@ -2,6 +2,8 @@ import streamlit as st
 from deep_translator import GoogleTranslator
 import pytesseract
 from PIL import Image
+import cv2
+import numpy as np
 from streamlit_paste_button import paste_image_button
 
 # Bảng ánh xạ Jamo sang QWERTY
@@ -22,79 +24,101 @@ def hangul_to_qwerty(korean_text):
             result += char 
     return result
 
-# --- GIAO DIỆN WEB ---
-st.title("🇰🇷 Công Cụ Tiếng Hàn Đa Năng")
-st.write("Hỗ trợ lấy cách gõ phím hoặc Dịch trực tiếp từ ảnh trong Game/Phim!")
+def enhanced_image_processing(pil_image):
+    """
+    Kính hiển vi thông minh: Làm rõ nét chữ bị mờ do thu phóng
+    """
+    # 1. Chuyển từ Pillow sang OpenCV BGR format
+    opencv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+    
+    # 2. Phóng đại ảnh lên gấp 2 lần bằng thuật toán nội suy Lanzcos (làm mịn hạt)
+    # Đây là "Kính hiển vi" của chúng ta
+    width, height = pil_image.size
+    enhanced_img = cv2.resize(opencv_img, (width * 2, height * 2), interpolation=cv2.INTER_LANCZOS4)
+    
+    # 3. Chuyển sang ảnh xám
+    gray_img = cv2.cvtColor(enhanced_img, cv2.COLOR_BGR2GRAY)
+    
+    # 4. Áp dụng nhị phân hóa cục bộ (sau khi khử nhiễu) để làm nét chữ
+    # Xử lý này rất hiệu quả với ảnh mờ vỡ hạt
+    blurred_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
+    final_img = cv2.adaptiveThreshold(blurred_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    
+    # 5. Chuyển lại về Pillow để Tesseract đọc
+    return Image.fromarray(final_img)
 
-# Công tắc chọn chế độ
+# --- GIAO DIỆN WEB ---
+st.title("🇰🇷 Công Cụ Gõ Tiếng Hàn Siêu Chống Mờ Pro")
+st.write("Hỗ trợ dịch đa năng, đặc biệt được nâng cấp bộ xử lý để đọc chữ bị vỡ hạt!")
+
 che_do = st.radio(
-    "⚙️ Chọn mục đích sử dụng của bạn:",
-    ("🇻🇳 Việt ➡️ 🇰🇷 Hàn (Để lấy cách gõ phím)", "🇰🇷 Hàn ➡️ 🇻🇳 Việt (Để tra nghĩa tiếng Việt)")
+    "⚙️ Chọn chế độ:",
+    ("🇻🇳 Việt ➡️ 🇰🇷 Hàn", "🇰🇷 Hàn ➡️ 🇻🇳 Việt")
 )
 
-tab1, tab2 = st.tabs(["✍️ Nhập văn bản", "🖼️ Dán ảnh & Dịch"])
+tab1, tab2 = st.tabs(["✍️ Nhập văn bản", "🖼️ Dán ảnh & Chuyển đổi"])
 
-# --- TAB 1: NHẬP VĂN BẢN ---
 with tab1:
-    tu_nhap = st.text_input("Nhập nội dung vào đây:")
-    if st.button("Dịch ngay", type="secondary"):
+    tu_nhap = st.text_input("Nhập nội dung:")
+    if st.button("Dịch", type="secondary"):
         if tu_nhap:
             with st.spinner('Đang dịch...'):
                 try:
                     if "Việt ➡️ Hàn" in che_do:
                         ket_qua = GoogleTranslator(source='vi', target='ko').translate(tu_nhap)
-                        st.success("Thành công!")
                         st.subheader(f"Tiếng Hàn: {ket_qua}")
                         st.subheader(f"Cách gõ: {hangul_to_qwerty(ket_qua)}")
                     else:
                         ket_qua = GoogleTranslator(source='ko', target='vi').translate(tu_nhap)
-                        st.success("Thành công!")
-                        st.subheader(f"Nghĩa Tiếng Việt: {ket_qua}")
-                except:
-                    st.error("Có lỗi xảy ra. Vui lòng thử lại.")
-        else:
-            st.warning("Bạn chưa nhập từ nào!")
+                        st.subheader(f"Nghĩa Việt: {ket_qua}")
+                except: st.error("Lỗi.")
+        else: st.warning("Nhập từ.")
 
-# --- TAB 2: DÁN ẢNH ---
 with tab2:
-    st.info("💡 Copy ảnh có chứa chữ và bấm nút đỏ bên dưới để dán.")
+    st.info("💡 Copy vùng ảnh chứa chữ, bấm nút đỏ để Dán (Paste). Nếu ảnh quá mờ, hệ thống siêu chống mờ sẽ tự kích hoạt.")
     
-    paste_result = paste_image_button(
-        label="📋 Bấm vào đây để Dán ảnh (Paste)",
-        background_color="#FF4B4B",
-        hover_background_color="#FF3333"
-    )
-    
-    image = None
-    if paste_result.image_data is not None:
-        image = paste_result.image_data
+    paste_result = paste_image_button(label="📋 Dán ảnh (Paste)", background_color="#FF4B4B")
+    image = paste_result.image_data
 
     if image is not None:
-        st.image(image, caption="Ảnh bạn vừa dán lên", use_container_width=True)
+        st.write("---")
+        col1, col2 = st.columns(2)
         
-        if st.button("Quét chữ & Dịch", type="primary"):
-            with st.spinner('Đang dùng AI quét chữ trong ảnh...'):
-                try:
-                    # Xác định ngôn ngữ quét ảnh dựa theo chế độ
-                    ngon_ngu_quet = 'vie' if "Việt ➡️ Hàn" in che_do else 'kor'
-                    
-                    text_quet = pytesseract.image_to_string(image, lang=ngon_ngu_quet).strip()
-                    
-                    if text_quet:
-                        st.write("**Chữ máy tính đọc được:**")
-                        st.info(text_quet)
+        with col1:
+            st.image(image, caption="Ảnh mờ gốc (Bị vỡ hạt)", use_container_width=True)
+            if st.button("Quét thường", type="secondary"):
+                with st.spinner('Đang quét...'):
+                    ngon_ngu = 'vie' if "Việt ➡️ Hàn" in che_do else 'kor'
+                    text = pytesseract.image_to_string(image, lang=ngon_ngu).strip()
+                    if text: st.info(f"Văn bản thường: {text}")
+                    else: st.warning("Không đọc được.")
+
+        with col2:
+            st.image(enhanced_image_processing(image), caption="Ảnh đã được Siêu Chống Mờ (Làm rõ nét)", use_container_width=True)
+            if st.button("Quét SIÊU CẤP", type="primary"):
+                with st.spinner('Đang kích hoạt kính hiển vi thông minh...'):
+                    try:
+                        # Kích hoạt hàm xử lý siêu cấp
+                        processed_image = enhanced_image_processing(image)
                         
-                        # Dịch theo chế độ
-                        if "Việt ➡️ Hàn" in che_do:
-                            ket_qua = GoogleTranslator(source='vi', target='ko').translate(text_quet)
-                            st.success("Đã dịch thành công!")
-                            st.subheader(f"Tiếng Hàn: {ket_qua}")
-                            st.subheader(f"Cách gõ: {hangul_to_qwerty(ket_qua)}")
+                        ngon_ngu = 'vie' if "Việt ➡️ Hàn" in che_do else 'kor'
+                        
+                        # Cấu hình OCR đặc biệt cho chữ bị mờ (psm 10: single character)
+                        config = '--psm 10' if "Hàn ➡️ Việt" in che_do else '--psm 7'
+                        
+                        extracted_text = pytesseract.image_to_string(processed_image, lang=ngon_ngu, config=config).strip()
+                        
+                        if extracted_text:
+                            st.write("**Văn bản đọc được:**")
+                            st.success(extracted_text)
+                            
+                            if "Việt ➡️ Hàn" in che_do:
+                                ket_qua = GoogleTranslator(source='vi', target='ko').translate(extracted_text)
+                                st.subheader(f"Tiếng Hàn: {ket_qua}")
+                                st.subheader(f"Cách gõ: {hangul_to_qwerty(ket_qua)}")
+                            else:
+                                ket_qua = GoogleTranslator(source='ko', target='vi').translate(extracted_text)
+                                st.subheader(f"Nghĩa Việt: {ket_qua}")
                         else:
-                            ket_qua = GoogleTranslator(source='ko', target='vi').translate(text_quet)
-                            st.success("Đã dịch thành công!")
-                            st.subheader(f"Nghĩa Tiếng Việt: {ket_qua}")
-                    else:
-                        st.warning("Máy không đọc được chữ nào. Bạn thử ảnh nét hơn nhé!")
-                except Exception as e:
-                    st.error(f"Lỗi hệ thống: {e}")
+                            st.warning("Hệ thống đã cố hết sức nhưng không nhận diện được chữ nào. Bạn thử ảnh nét hơn nhé!")
+                    except Exception as e: st.error(f"Lỗi: {e}")

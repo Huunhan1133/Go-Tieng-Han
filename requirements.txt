@@ -2,3 +2,5 @@ deep-translator
 pytesseract
 Pillow
 streamlit-paste-button
+opencv-python-headless
+numpy
