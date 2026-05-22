@@ -2,6 +2,7 @@ import streamlit as st
 from deep_translator import GoogleTranslator
 import pytesseract
 from PIL import Image
+from streamlit_paste_button import paste_image_button
 
 # Bảng ánh xạ Jamo sang QWERTY
 CHOSEONG_MAP = ['r', 'R', 's', 'e', 'E', 'f', 'a', 'q', 'Q', 't', 'T', 'd', 'w', 'W', 'c', 'z', 'x', 'v', 'g']
@@ -31,7 +32,6 @@ def hangul_to_qwerty(korean_text):
 st.title("🇰🇷 Công Cụ Gõ Tiếng Hàn PRO")
 st.write("Hỗ trợ dịch từ văn bản và trích xuất chữ tiếng Việt từ hình ảnh!")
 
-# Tạo 2 Tab để giao diện gọn gàng
 tab1, tab2 = st.tabs(["✍️ Nhập văn bản", "🖼️ Dịch từ ảnh"])
 
 # --- TAB 1: DỊCH CHỮ ---
@@ -53,25 +53,41 @@ with tab1:
 
 # --- TAB 2: DỊCH ẢNH ---
 with tab2:
-    st.info("💡 Mẹo: Hãy tải lên ảnh chụp màn hình hoặc ảnh có chữ in rõ nét để máy đọc chính xác nhất nhé.")
-    uploaded_file = st.file_uploader("Tải ảnh chứa tiếng Việt lên đây", type=["jpg", "jpeg", "png"])
+    st.info("💡 Mẹo: Bạn có thể tải file ảnh lên HOẶC copy ảnh và bấm nút Dán (Paste) ở bên dưới nhé.")
     
+    # 1. Khu vực tải ảnh bình thường
+    uploaded_file = st.file_uploader("1. Tải file ảnh từ máy tính", type=["jpg", "jpeg", "png"])
+    
+    st.write("--- HOẶC ---")
+    
+    # 2. Khu vực dán ảnh từ Clipboard
+    st.write("**2. Dán ảnh vừa Copy**")
+    paste_result = paste_image_button(
+        label="📋 Bấm vào đây để Dán ảnh",
+        background_color="#FF4B4B",
+        hover_background_color="#FF6666"
+    )
+    
+    # Xác định nguồn ảnh: Lấy từ Upload hay từ nút Dán?
+    image = None
     if uploaded_file is not None:
-        # Hiển thị ảnh
         image = Image.open(uploaded_file)
-        st.image(image, caption="Ảnh bạn vừa tải lên", use_container_width=True)
+    elif paste_result.image_data is not None:
+        image = paste_result.image_data
+
+    # Xử lý nếu đã nhận được ảnh
+    if image is not None:
+        st.image(image, caption="Ảnh bạn vừa đưa lên", use_container_width=True)
         
-        if st.button("Quét chữ & Dịch"):
+        if st.button("Quét chữ & Dịch", type="primary"):
             with st.spinner('Đang dùng AI quét chữ trong ảnh...'):
                 try:
-                    # Đọc chữ từ ảnh (lang='vie' là tiếng Việt)
                     extracted_text = pytesseract.image_to_string(image, lang='vie').strip()
                     
                     if extracted_text:
                         st.write("**Chữ máy tính đọc được:**")
                         st.info(extracted_text)
                         
-                        # Dịch chữ vừa quét được
                         tu_han = translate_vi_to_ko(extracted_text)
                         if tu_han:
                             chuoi_phim = hangul_to_qwerty(tu_han)
@@ -81,4 +97,4 @@ with tab2:
                     else:
                         st.warning("Máy không tìm thấy chữ nào trong ảnh. Bạn thử dùng ảnh nét hơn xem sao nhé!")
                 except Exception as e:
-                    st.error("Chưa cài đặt đủ hệ thống quét ảnh trên máy chủ. Bạn nhớ tạo file packages.txt nhé!")
+                    st.error(f"Lỗi hệ thống: {e}")
