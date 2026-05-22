@@ -24,35 +24,54 @@ def hangul_to_qwerty(korean_text):
     return result
 
 # --- GIAO DIỆN WEB ---
-st.set_page_config(page_title="Công Cụ Dịch Thuật Siêu Cấp 2.0")
+# Thêm tham số layout="wide" để trang web giãn rộng tràn viền
+st.set_page_config(page_title="Công Cụ Dịch Thuật Siêu Cấp 2.0", layout="wide") 
+
 st.title("🇰🇷 Công Cụ Dịch Đa Năng PRO 2.0")
 st.write("Phiên bản **SIÊU CẤP 2.0** chuyên trị chữ trong Game/Phim/Ảnh phức tạp!")
 
+# Đưa nút chọn chế độ ra giữa trang
 che_do = st.radio(
-    "⚙️ Bạn muốn làm gì?",
-    ("🇻🇳 Việt ➡️ 🇰🇷 Hàn (Lấy cách gõ phím)", "🇰🇷 Hàn ➡️ 🇻🇳 Việt (Tra nghĩa từ ảnh Game/Phim)")
+    "⚙️ Bạn muốn làm gì hôm nay?",
+    ("🇻🇳 Việt ➡️ 🇰🇷 Hàn (Lấy cách gõ phím)", "🇰🇷 Hàn ➡️ 🇻🇳 Việt (Tra nghĩa từ ảnh Game/Phim)"),
+    horizontal=True # Đặt nằm ngang cho đẹp
 )
 
-tab1, tab2 = st.tabs(["✍️ Nhập văn bản", "🖼️ Dán ảnh & Chuyển đổi"])
+st.divider() # Đường gạch ngang phân cách
 
-with tab1:
-    tu_nhap = st.text_input("Nhập nội dung:")
-    if st.button("Dịch", type="secondary"):
+# --- CHIA 2 CỘT TỶ LỆ 1:1 ---
+col1, col2 = st.columns(2, gap="large")
+
+# CỘT BÊN TRÁI: NHẬP VĂN BẢN
+with col1:
+    st.subheader("✍️ Dịch từ Văn bản")
+    tu_nhap = st.text_input("Nhập nội dung cần dịch:")
+    
+    if st.button("Dịch văn bản", type="secondary"):
         if tu_nhap:
             with st.spinner('Đang dịch...'):
                 try:
                     if "Việt ➡️ Hàn" in che_do:
                         ket_qua = GoogleTranslator(source='vi', target='ko').translate(tu_nhap)
-                        st.subheader(f"Tiếng Hàn: {ket_qua}")
-                        st.subheader(f"Cách gõ: {hangul_to_qwerty(ket_qua)}")
+                        st.success("Dịch thành công!")
+                        st.write("**Tiếng Hàn:**")
+                        st.info(ket_qua)
+                        st.write("**Cách gõ:**")
+                        st.code(hangul_to_qwerty(ket_qua))
                     else:
                         ket_qua = GoogleTranslator(source='ko', target='vi').translate(tu_nhap)
-                        st.subheader(f"Nghĩa Việt: {ket_qua}")
-                except Exception as e: st.error(f"Lỗi dịch: {e}")
-        else: st.warning("Nhập từ.")
+                        st.success("Dịch thành công!")
+                        st.write("**Nghĩa Việt:**")
+                        st.info(ket_qua)
+                except Exception as e: 
+                    st.error(f"Lỗi dịch: {e}")
+        else: 
+            st.warning("Bạn chưa nhập từ nào!")
 
-with tab2:
-    st.info("💡 Copy vùng ảnh chứa chữ (mờ/rõ/trong game đều được), bấm nút đỏ để Dán (Paste). Hệ thống sẽ tự xử lý.")
+# CỘT BÊN PHẢI: DÁN ẢNH
+with col2:
+    st.subheader("🖼️ Dịch từ Hình ảnh")
+    st.info("💡 Copy vùng ảnh chứa chữ, bấm nút đỏ bên dưới để Dán (Paste).")
     
     paste_result = paste_image_button(label="📋 Bấm để Dán ảnh (Paste)", background_color="#FF4B4B")
     image_data = paste_result.image_data
@@ -65,26 +84,28 @@ with tab2:
                 try:
                     img_np = np.array(image_data)
                     
-                    # Nạp ngôn ngữ ĐỘNG dựa trên chế độ bạn chọn
                     if "Việt ➡️ Hàn" in che_do:
-                        reader = easyocr.Reader(['vi', 'en'], gpu=False) # Quét tiếng Việt
+                        reader = easyocr.Reader(['vi', 'en'], gpu=False)
                     else:
-                        reader = easyocr.Reader(['ko', 'en'], gpu=False) # Quét tiếng Hàn (Sửa lỗi ở đây)
+                        reader = easyocr.Reader(['ko', 'en'], gpu=False)
                     
                     extracted_texts = reader.readtext(img_np, detail=0)
                     final_extracted_text = " ".join(extracted_texts).strip()
                     
                     if final_extracted_text:
-                        st.write("**Văn bản đọc được:**")
+                        st.write("**Văn bản máy đọc được:**")
                         st.success(final_extracted_text)
                         
                         if "Việt ➡️ Hàn" in che_do:
                             ket_qua = GoogleTranslator(source='vi', target='ko').translate(final_extracted_text)
-                            st.subheader(f"Tiếng Hàn: {ket_qua}")
-                            st.subheader(f"Cách gõ: {hangul_to_qwerty(ket_qua)}")
+                            st.write("**Tiếng Hàn:**")
+                            st.info(ket_qua)
+                            st.write("**Cách gõ:**")
+                            st.code(hangul_to_qwerty(ket_qua))
                         else:
                             ket_qua = GoogleTranslator(source='auto', target='vi').translate(final_extracted_text)
-                            st.subheader(f"Nghĩa Việt: {ket_qua}")
+                            st.write("**Nghĩa Việt:**")
+                            st.info(ket_qua)
                     else:
                         st.warning("Hệ thống không nhận diện được chữ nào trong bức ảnh này.")
                 except Exception as e:
