@@ -1,1 +1,4 @@
 deep-translator
+pytesseract
+Pillow
+streamlit-paste-button
