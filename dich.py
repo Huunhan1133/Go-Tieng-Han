@@ -77,7 +77,7 @@ with tab2:
             with st.spinner('Đang dùng AI quét chữ tiếng Việt trong ảnh...'):
                 try:
                     # Đọc chữ từ ảnh (lang='vie' là tiếng Việt)
-                    extracted_text = pytesseract.image_to_string(image, lang='vie').strip()
+                    extracted_text = pytesseract.image_to_string(image, lang='vie+kor').strip()
                     
                     if extracted_text:
                         st.write("**Chữ máy tính đọc được:**")
