@@ -24,7 +24,6 @@ def hangul_to_qwerty(korean_text):
 # --- GIAO DIỆN WEB ---
 st.set_page_config(page_title="Công Cụ Dịch Thuật AI", layout="wide") 
 
-# TỰ ĐỘNG LẤY API KEY TỪ KHO BÍ MẬT
 try:
     user_api_key = st.secrets["GEMINI_API_KEY"]
 except:
@@ -54,7 +53,8 @@ with col1:
             with st.spinner('AI đang suy nghĩ...'):
                 try:
                     genai.configure(api_key=user_api_key)
-                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    # Đã sửa lại tên phiên bản thành mới nhất
+                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
                     
                     if "Lấy cách gõ phím" in che_do:
                         prompt = f"Dịch câu sau sang tiếng Hàn, dùng văn phong game MMORPG cổ điển. Chỉ in kết quả dịch: '{tu_nhap}'"
@@ -85,12 +85,13 @@ with col2:
                 with st.spinner('AI đang dùng MẮT THẦN nhìn vào ảnh...'):
                     try:
                         genai.configure(api_key=user_api_key)
-                        model = genai.GenerativeModel('gemini-1.5-flash')
+                        # Đã sửa lại tên phiên bản thành mới nhất
+                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
                         
                         if "Lấy cách gõ phím" in che_do:
-                            prompt = "Hãy đọc chữ tiếng Việt trong bức ảnh này và dịch nó sang tiếng Hàn. Trình bày làm 2 dòng: 'Chữ gốc: [chữ đọc được]' và 'Dịch sang Hàn: [chữ dịch]'"
+                            prompt = "Hãy đọc chữ tiếng Việt trong bức ảnh này và dịch nó sang tiếng Hàn. Trình bày làm 2 dòng:\nChữ gốc: [chữ đọc được]\nDịch sang Hàn: [chữ dịch]"
                         else:
-                            prompt = "Hãy nhìn vào bức ảnh này, đây thường là cảnh từ các game MMORPG cổ điển như Lineage hay Nexus: The Kingdom of the Winds với phông chữ dạng pixel vỡ hạt. Hãy đọc chữ tiếng Hàn/Nhật trong ảnh và dịch sang tiếng Việt sát nghĩa nhất. Trình bày làm 2 dòng: 'Chữ gốc máy đọc được: [chữ đọc được]' và 'Nghĩa Tiếng Việt: [chữ dịch]'"
+                            prompt = "Hãy nhìn vào bức ảnh này, đây là ảnh từ game MMORPG cổ điển với phông chữ dạng pixel. Hãy đọc chữ tiếng Hàn/Nhật trong ảnh và dịch sang tiếng Việt sát nghĩa nhất. Trình bày làm 2 dòng:\nChữ gốc: [chữ đọc được]\nNghĩa Tiếng Việt: [chữ dịch]"
                         
                         response = model.generate_content([prompt, image_data])
                         
