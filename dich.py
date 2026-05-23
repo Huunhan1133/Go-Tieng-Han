@@ -21,17 +21,16 @@ def hangul_to_qwerty(korean_text):
             result += char 
     return result
 
-# --- HÀM TÌM AI CHUYÊN TRỊ LỖI QUOTA ---
+# --- HÀM TÌM AI THÔNG MINH ---
 def get_best_model(api_key):
     genai.configure(api_key=api_key)
     available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     
-    # Ưu tiên 1: Bắt buộc tìm bản 'flash' (Tốc độ cực nhanh và có Free Tier)
+    # Ưu tiên bản flash vì tốc độ cao và có gói miễn phí tốt
     for m in available_models:
         if 'flash' in m.lower():
             return m
             
-    # Ưu tiên 2: Né mấy thằng 'pro' ra vì nó bắt trả phí (limit: 0)
     for m in available_models:
         if 'pro' not in m.lower():
             return m
@@ -77,13 +76,13 @@ with col1:
                     if "Lấy cách gõ phím" in che_do:
                         prompt = f"Dịch câu sau sang tiếng Hàn, dùng văn phong game MMORPG cổ điển. Chỉ in kết quả dịch: '{tu_nhap}'"
                         ket_qua = model.generate_content(prompt).text.strip()
-                        st.success(f"Dịch thành công! (Đang chạy bản: {best_model_name})")
+                        st.success(f"Dịch thành công! (Model: {best_model_name})")
                         st.info(ket_qua)
                         st.code(hangul_to_qwerty(ket_qua))
                     else:
                         prompt = f"Dịch câu tiếng Hàn sau sang tiếng Việt, chú ý các từ lóng và thuật ngữ. Chỉ in kết quả dịch: '{tu_nhap}'"
                         ket_qua = model.generate_content(prompt).text.strip()
-                        st.success(f"Dịch thành công! (Đang chạy bản: {best_model_name})")
+                        st.success(f"Dịch thành công! (Model: {best_model_name})")
                         st.info(ket_qua)
                 except Exception as e:
                     st.error(f"Lỗi AI: {e}")
@@ -105,14 +104,18 @@ with col2:
                         best_model_name = get_best_model(user_api_key)
                         model = genai.GenerativeModel(best_model_name)
                         
+                        # CHUẨN HÓA VÀ NÉN ẢNH ĐỂ TRÁNH LỖI ĐỊNH DẠNG / QUOTA TOKENS
+                        img_input = image_data.convert("RGB")
+                        img_input.thumbnail((1024, 1024)) # Giới hạn cạnh dài nhất tối đa 1024px để giảm tải tokens
+                        
                         if "Lấy cách gõ phím" in che_do:
                             prompt = "Hãy đọc chữ tiếng Việt trong bức ảnh này và dịch nó sang tiếng Hàn. Trình bày làm 2 dòng:\nChữ gốc: [chữ đọc được]\nDịch sang Hàn: [chữ dịch]"
                         else:
-                            prompt = "Hãy nhìn vào bức ảnh này, đây là ảnh từ game MMORPG cổ điển với phông chữ dạng pixel. Hãy đọc chữ tiếng Hàn/Nhật trong ảnh và dịch sang tiếng Việt sát nghĩa nhất. Trình bày làm 2 dòng:\nChữ gốc máy đọc được: [chữ đọc được]\nNghĩa Tiếng Việt: [chữ dịch]"
+                            prompt = "Hãy nhìn vào bức ảnh này, đây là ảnh từ game MMORPG cổ điển với phông chữ dạng pixel vỡ hạt. Hãy đọc chữ tiếng Hàn/Nhật trong ảnh và dịch sang tiếng Việt sát nghĩa nhất. Trình bày làm 2 dòng:\nChữ gốc máy đọc được: [chữ đọc được]\nNghĩa Tiếng Việt: [chữ dịch]"
                         
-                        response = model.generate_content([prompt, image_data])
+                        response = model.generate_content([prompt, img_input])
                         
-                        st.success(f"Mắt Thần đã phân tích xong! (Đang chạy bản: {best_model_name})")
+                        st.success(f"Mắt Thần đã phân tích xong! (Model: {best_model_name})")
                         st.write(response.text)
                         
                         if "Lấy cách gõ phím" in che_do:
@@ -124,4 +127,5 @@ with col2:
                                     st.code(hangul_to_qwerty(korean_text))
                                     
                     except Exception as e:
-                        st.error(f"Lỗi hệ thống: {e}")
+                        # Hiện thông báo lỗi chi tiết để dễ debug
+                        st.error(f"❌ Lỗi xử lý ảnh từ hệ thống: {e}")
