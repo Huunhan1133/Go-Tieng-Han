@@ -21,6 +21,27 @@ def hangul_to_qwerty(korean_text):
             result += char 
     return result
 
+# --- HÀM TÌM AI THÔNG MINH ---
+def get_best_model(api_key):
+    genai.configure(api_key=api_key)
+    # Lấy danh sách tất cả các AI mà Google cho phép tài khoản của bạn dùng
+    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+    
+    # Tự động tìm bản flash 1.5
+    for m in available_models:
+        if 'gemini-1.5-flash' in m:
+            return m
+            
+    # Nếu không có, lấy bản pro mặc định
+    for m in available_models:
+        if 'gemini-pro' in m:
+            return m
+            
+    # Nếu vẫn không có, lấy đại model đầu tiên trong danh sách của bạn
+    if available_models:
+        return available_models[0]
+    return 'gemini-1.5-flash'
+
 # --- GIAO DIỆN WEB ---
 st.set_page_config(page_title="Công Cụ Dịch Thuật AI", layout="wide") 
 
@@ -52,9 +73,8 @@ with col1:
         if tu_nhap and user_api_key:
             with st.spinner('AI đang suy nghĩ...'):
                 try:
-                    genai.configure(api_key=user_api_key)
-                    # Đã sửa lại tên phiên bản thành mới nhất
-                    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                    best_model_name = get_best_model(user_api_key)
+                    model = genai.GenerativeModel(best_model_name)
                     
                     if "Lấy cách gõ phím" in che_do:
                         prompt = f"Dịch câu sau sang tiếng Hàn, dùng văn phong game MMORPG cổ điển. Chỉ in kết quả dịch: '{tu_nhap}'"
@@ -84,14 +104,13 @@ with col2:
             if user_api_key:
                 with st.spinner('AI đang dùng MẮT THẦN nhìn vào ảnh...'):
                     try:
-                        genai.configure(api_key=user_api_key)
-                        # Đã sửa lại tên phiên bản thành mới nhất
-                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                        best_model_name = get_best_model(user_api_key)
+                        model = genai.GenerativeModel(best_model_name)
                         
                         if "Lấy cách gõ phím" in che_do:
                             prompt = "Hãy đọc chữ tiếng Việt trong bức ảnh này và dịch nó sang tiếng Hàn. Trình bày làm 2 dòng:\nChữ gốc: [chữ đọc được]\nDịch sang Hàn: [chữ dịch]"
                         else:
-                            prompt = "Hãy nhìn vào bức ảnh này, đây là ảnh từ game MMORPG cổ điển với phông chữ dạng pixel. Hãy đọc chữ tiếng Hàn/Nhật trong ảnh và dịch sang tiếng Việt sát nghĩa nhất. Trình bày làm 2 dòng:\nChữ gốc: [chữ đọc được]\nNghĩa Tiếng Việt: [chữ dịch]"
+                            prompt = "Hãy nhìn vào bức ảnh này, đây là ảnh từ game MMORPG cổ điển với phông chữ dạng pixel. Hãy đọc chữ tiếng Hàn/Nhật trong ảnh và dịch sang tiếng Việt sát nghĩa nhất. Trình bày làm 2 dòng:\nChữ gốc máy đọc được: [chữ đọc được]\nNghĩa Tiếng Việt: [chữ dịch]"
                         
                         response = model.generate_content([prompt, image_data])
                         
