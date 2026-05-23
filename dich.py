@@ -21,26 +21,24 @@ def hangul_to_qwerty(korean_text):
             result += char 
     return result
 
-# --- HÀM TÌM AI THÔNG MINH ---
+# --- HÀM TÌM AI CHUYÊN TRỊ LỖI QUOTA ---
 def get_best_model(api_key):
     genai.configure(api_key=api_key)
-    # Lấy danh sách tất cả các AI mà Google cho phép tài khoản của bạn dùng
     available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
     
-    # Tự động tìm bản flash 1.5
+    # Ưu tiên 1: Bắt buộc tìm bản 'flash' (Tốc độ cực nhanh và có Free Tier)
     for m in available_models:
-        if 'gemini-1.5-flash' in m:
+        if 'flash' in m.lower():
             return m
             
-    # Nếu không có, lấy bản pro mặc định
+    # Ưu tiên 2: Né mấy thằng 'pro' ra vì nó bắt trả phí (limit: 0)
     for m in available_models:
-        if 'gemini-pro' in m:
+        if 'pro' not in m.lower():
             return m
             
-    # Nếu vẫn không có, lấy đại model đầu tiên trong danh sách của bạn
     if available_models:
         return available_models[0]
-    return 'gemini-1.5-flash'
+    return 'models/gemini-1.5-flash'
 
 # --- GIAO DIỆN WEB ---
 st.set_page_config(page_title="Công Cụ Dịch Thuật AI", layout="wide") 
@@ -79,13 +77,13 @@ with col1:
                     if "Lấy cách gõ phím" in che_do:
                         prompt = f"Dịch câu sau sang tiếng Hàn, dùng văn phong game MMORPG cổ điển. Chỉ in kết quả dịch: '{tu_nhap}'"
                         ket_qua = model.generate_content(prompt).text.strip()
-                        st.success("Dịch thành công!")
+                        st.success(f"Dịch thành công! (Đang chạy bản: {best_model_name})")
                         st.info(ket_qua)
                         st.code(hangul_to_qwerty(ket_qua))
                     else:
                         prompt = f"Dịch câu tiếng Hàn sau sang tiếng Việt, chú ý các từ lóng và thuật ngữ. Chỉ in kết quả dịch: '{tu_nhap}'"
                         ket_qua = model.generate_content(prompt).text.strip()
-                        st.success("Dịch thành công!")
+                        st.success(f"Dịch thành công! (Đang chạy bản: {best_model_name})")
                         st.info(ket_qua)
                 except Exception as e:
                     st.error(f"Lỗi AI: {e}")
@@ -114,7 +112,7 @@ with col2:
                         
                         response = model.generate_content([prompt, image_data])
                         
-                        st.success("Mắt Thần đã phân tích xong!")
+                        st.success(f"Mắt Thần đã phân tích xong! (Đang chạy bản: {best_model_name})")
                         st.write(response.text)
                         
                         if "Lấy cách gõ phím" in che_do:
