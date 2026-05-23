@@ -1,9 +1,6 @@
 import streamlit as st
 import google.generativeai as genai
-import pytesseract
 from PIL import Image
-import cv2
-import numpy as np
 from streamlit_paste_button import paste_image_button
 
 # Bảng ánh xạ Jamo sang QWERTY
@@ -24,42 +21,20 @@ def hangul_to_qwerty(korean_text):
             result += char 
     return result
 
-def enhanced_image_processing(pil_image):
-    opencv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-    width, height = pil_image.size
-    enhanced_img = cv2.resize(opencv_img, (width * 2, height * 2), interpolation=cv2.INTER_LANCZOS4)
-    gray_img = cv2.cvtColor(enhanced_img, cv2.COLOR_BGR2GRAY)
-    blurred_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
-    final_img = cv2.adaptiveThreshold(blurred_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
-    return Image.fromarray(final_img)
-
-# --- HÀM DỊCH THUẬT BẰNG AI ---
-def ai_translate(text, direction, api_key):
-    try:
-        genai.configure(api_key=api_key)
-        # Sử dụng model flash siêu tốc của Google
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        if direction == "vi2ko":
-            prompt = f"Dịch câu tiếng Việt sau sang tiếng Hàn một cách tự nhiên nhất, dùng văn phong giao tiếp mạng hoặc game. Chỉ in ra kết quả dịch, không giải thích gì thêm: '{text}'"
-        else:
-            prompt = f"Dịch câu tiếng Hàn/Nhật sau sang tiếng Việt thật mượt mà và dễ hiểu. Đặc biệt chú ý dịch sát nghĩa nếu đây là thuật ngữ, tên vật phẩm (như Tinh thể linh hồn, ngọc...), kỹ năng hoặc đoạn hội thoại trong các tựa game nhập vai MMORPG cổ điển. Chỉ in ra kết quả dịch, tuyệt đối không giải thích thêm: '{text}'"
-        
-        response = model.generate_content(prompt)
-        return response.text.strip()
-    except Exception as e:
-        return f"Lỗi AI (Có thể do API Key chưa đúng): {e}"
-
 # --- GIAO DIỆN WEB ---
 st.set_page_config(page_title="Công Cụ Dịch Thuật AI", layout="wide") 
 
-# Cột bên trái để nhập API Key bảo mật
-st.sidebar.header("🔑 Cấu hình Trí tuệ Nhân tạo")
-st.sidebar.info("Để AI hoạt động, bạn cần nhập API Key lấy từ Google AI Studio.")
-user_api_key = st.sidebar.text_input("Nhập Gemini API Key vào đây:", type="password")
+# TỰ ĐỘNG LẤY API KEY TỪ KHO BÍ MẬT
+try:
+    user_api_key = st.secrets["GEMINI_API_KEY"]
+except:
+    user_api_key = None
 
 st.title("🇰🇷 Công Cụ Dịch Đa Năng Tích Hợp AI")
-st.write("Sử dụng não bộ Trí tuệ Nhân tạo để dịch mượt mà các thuật ngữ và câu lóng!")
+st.write("Sử dụng não bộ Trí tuệ Nhân tạo Google Gemini để quét ảnh và dịch thuật!")
+
+if not user_api_key:
+    st.error("⚠️ Hệ thống chưa tìm thấy API Key! Hãy vào phần Settings -> Secrets trên Streamlit Cloud để cấu hình biến GEMINI_API_KEY nhé.")
 
 che_do = st.radio(
     "⚙️ Bạn muốn làm gì hôm nay?",
@@ -75,62 +50,60 @@ with col1:
     tu_nhap = st.text_input("Nhập nội dung cần dịch:")
     
     if st.button("Dịch văn bản", type="secondary"):
-        if not user_api_key:
-            st.error("⚠️ Vui lòng nhập API Key ở thanh menu bên trái trước!")
-        elif tu_nhap:
+        if tu_nhap and user_api_key:
             with st.spinner('AI đang suy nghĩ...'):
-                if "Lấy cách gõ phím" in che_do:
-                    ket_qua = ai_translate(tu_nhap, "vi2ko", user_api_key)
-                    if "Lỗi AI" not in ket_qua:
+                try:
+                    genai.configure(api_key=user_api_key)
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    
+                    if "Lấy cách gõ phím" in che_do:
+                        prompt = f"Dịch câu sau sang tiếng Hàn, dùng văn phong game MMORPG cổ điển. Chỉ in kết quả dịch: '{tu_nhap}'"
+                        ket_qua = model.generate_content(prompt).text.strip()
                         st.success("Dịch thành công!")
-                        st.write("**Tiếng Hàn (AI dịch):**")
                         st.info(ket_qua)
-                        st.write("**Cách gõ:**")
                         st.code(hangul_to_qwerty(ket_qua))
-                    else: st.error(ket_qua)
-                else:
-                    ket_qua = ai_translate(tu_nhap, "ko2vi", user_api_key)
-                    if "Lỗi AI" not in ket_qua:
+                    else:
+                        prompt = f"Dịch câu tiếng Hàn sau sang tiếng Việt, chú ý các từ lóng và thuật ngữ. Chỉ in kết quả dịch: '{tu_nhap}'"
+                        ket_qua = model.generate_content(prompt).text.strip()
                         st.success("Dịch thành công!")
-                        st.write("**Nghĩa Việt (AI dịch):**")
                         st.info(ket_qua)
-                    else: st.error(ket_qua)
-        else: 
+                except Exception as e:
+                    st.error(f"Lỗi AI: {e}")
+        elif not tu_nhap: 
             st.warning("Bạn chưa nhập từ nào!")
 
 with col2:
-    st.subheader("🖼️ Dịch từ Hình ảnh")
-    paste_result = paste_image_button(label="📋 Bấm để Dán ảnh (Paste)", background_color="#FF4B4B")
+    st.subheader("🖼️ Dịch từ Hình ảnh (AI Vision)")
+    paste_result = paste_image_button(label="📋 Bấm để Dán ảnh", background_color="#FF4B4B")
     image_data = paste_result.image_data
 
     if image_data is not None:
-        st.image(image_data, caption="Ảnh bạn vừa dán lên", use_container_width=True)
+        st.image(image_data, caption="Ảnh bạn dán", use_container_width=True)
         
-        if st.button("Quét & Dịch bằng AI", type="primary"):
-            if not user_api_key:
-                st.error("⚠️ Vui lòng nhập API Key ở thanh menu bên trái trước!")
-            else:
-                with st.spinner('Đang quét chữ và phân tích ngữ cảnh...'):
+        if st.button("AI Quét Ảnh & Dịch", type="primary"):
+            if user_api_key:
+                with st.spinner('AI đang dùng MẮT THẦN nhìn vào ảnh...'):
                     try:
-                        processed_image = enhanced_image_processing(image_data)
-                        ngon_ngu = 'vie' if "Lấy cách gõ phím" in che_do else 'kor'
-                        extracted_text = pytesseract.image_to_string(processed_image, lang=ngon_ngu, config='--psm 6').strip()
+                        genai.configure(api_key=user_api_key)
+                        model = genai.GenerativeModel('gemini-1.5-flash')
                         
-                        if extracted_text:
-                            st.write("**Văn bản máy đọc được:**")
-                            st.success(extracted_text)
-                            
-                            if "Lấy cách gõ phím" in che_do:
-                                ket_qua = ai_translate(extracted_text, "vi2ko", user_api_key)
-                                st.write("**Tiếng Hàn:**")
-                                st.info(ket_qua)
-                                st.write("**Cách gõ:**")
-                                st.code(hangul_to_qwerty(ket_qua))
-                            else:
-                                ket_qua = ai_translate(extracted_text, "ko2vi", user_api_key)
-                                st.write("**Nghĩa Việt:**")
-                                st.info(ket_qua)
+                        if "Lấy cách gõ phím" in che_do:
+                            prompt = "Hãy đọc chữ tiếng Việt trong bức ảnh này và dịch nó sang tiếng Hàn. Trình bày làm 2 dòng: 'Chữ gốc: [chữ đọc được]' và 'Dịch sang Hàn: [chữ dịch]'"
                         else:
-                            st.warning("Ảnh quá mờ hoặc dính nền phức tạp, máy không đọc được chữ.")
+                            prompt = "Hãy nhìn vào bức ảnh này, đây thường là cảnh từ các game MMORPG cổ điển như Lineage hay Nexus: The Kingdom of the Winds với phông chữ dạng pixel vỡ hạt. Hãy đọc chữ tiếng Hàn/Nhật trong ảnh và dịch sang tiếng Việt sát nghĩa nhất. Trình bày làm 2 dòng: 'Chữ gốc máy đọc được: [chữ đọc được]' và 'Nghĩa Tiếng Việt: [chữ dịch]'"
+                        
+                        response = model.generate_content([prompt, image_data])
+                        
+                        st.success("Mắt Thần đã phân tích xong!")
+                        st.write(response.text)
+                        
+                        if "Lấy cách gõ phím" in che_do:
+                            lines = response.text.split('\n')
+                            for line in lines:
+                                if "Dịch sang Hàn:" in line:
+                                    korean_text = line.replace("Dịch sang Hàn:", "").strip()
+                                    st.write("**Cách gõ phím:**")
+                                    st.code(hangul_to_qwerty(korean_text))
+                                    
                     except Exception as e:
                         st.error(f"Lỗi hệ thống: {e}")
