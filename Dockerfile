@@ -18,6 +18,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy toàn bộ code của bạn vào máy chủ
 COPY . .
 
-# Lệnh khởi động trang web
+# Lệnh khởi động trang web với cấu hình nới lỏng bảo mật để hiển thị giao diện
 EXPOSE 8501
-CMD ["streamlit", "run", "dich.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "dich.py", "--server.port=8501", "--server.address=0.0.0.0", "--server.enableCORS=false", "--server.enableXsrfProtection=false"]
