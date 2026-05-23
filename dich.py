@@ -1,7 +1,8 @@
 import streamlit as st
 from deep_translator import GoogleTranslator
+import pytesseract
 from PIL import Image
-import easyocr
+import cv2
 import numpy as np
 from streamlit_paste_button import paste_image_button
 
@@ -23,13 +24,22 @@ def hangul_to_qwerty(korean_text):
             result += char 
     return result
 
+def enhanced_image_processing(pil_image):
+    # Bộ lọc chống mờ chuyên dụng cho Tesseract
+    opencv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+    width, height = pil_image.size
+    enhanced_img = cv2.resize(opencv_img, (width * 2, height * 2), interpolation=cv2.INTER_LANCZOS4)
+    gray_img = cv2.cvtColor(enhanced_img, cv2.COLOR_BGR2GRAY)
+    blurred_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
+    final_img = cv2.adaptiveThreshold(blurred_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    return Image.fromarray(final_img)
+
 # --- GIAO DIỆN WEB ---
-st.set_page_config(page_title="Công Cụ Dịch Thuật Siêu Cấp 2.0", layout="wide") 
+st.set_page_config(page_title="Công Cụ Dịch Thuật", layout="wide") 
 
-st.title("🇰🇷 Công Cụ Dịch Đa Năng PRO 2.0")
-st.write("Phiên bản **SIÊU CẤP 2.0** chuyên trị chữ trong Game/Phim/Ảnh phức tạp!")
+st.title("🇰🇷 Công Cụ Dịch Đa Năng PRO")
+st.write("Phiên bản nhẹ và mượt mà, chống sập máy chủ!")
 
-# Bạn có thể thoải mái sửa chữ ở đây, miễn là giữ lại chữ "Lấy cách gõ phím"
 che_do = st.radio(
     "⚙️ Bạn muốn làm gì hôm nay?",
     ("VN Việt ➡️ KR Hàn (Lấy cách gõ phím)", "KR Hàn ➡️ VN Việt (Tra nghĩa từ ảnh Game/Phim)"),
@@ -48,7 +58,6 @@ with col1:
         if tu_nhap:
             with st.spinner('Đang dịch...'):
                 try:
-                    # Đã sửa lại điều kiện kiểm tra thông minh hơn
                     if "Lấy cách gõ phím" in che_do:
                         ket_qua = GoogleTranslator(source='vi', target='ko').translate(tu_nhap)
                         st.success("Dịch thành công!")
@@ -76,36 +85,35 @@ with col2:
     if image_data is not None:
         st.image(image_data, caption="Ảnh bạn vừa dán lên", use_container_width=True)
         
-        if st.button("Quét & Dịch SIÊU CẤP 2.0", type="primary"):
-            with st.spinner('Đang kích hoạt bộ não AI...'):
+        if st.button("Quét & Dịch qua Ảnh", type="primary"):
+            with st.spinner('Đang quét chữ...'):
                 try:
-                    img_np = np.array(image_data)
+                    processed_image = enhanced_image_processing(image_data)
                     
-                    # Đã sửa lại điều kiện kiểm tra thông minh hơn
                     if "Lấy cách gõ phím" in che_do:
-                        reader = easyocr.Reader(['vi', 'en'], gpu=False)
+                        ngon_ngu = 'vie'
+                        config = '--psm 6'
                     else:
-                        reader = easyocr.Reader(['ko', 'en'], gpu=False)
+                        ngon_ngu = 'kor'
+                        config = '--psm 6'
                     
-                    extracted_texts = reader.readtext(img_np, detail=0)
-                    final_extracted_text = " ".join(extracted_texts).strip()
+                    extracted_text = pytesseract.image_to_string(processed_image, lang=ngon_ngu, config=config).strip()
                     
-                    if final_extracted_text:
+                    if extracted_text:
                         st.write("**Văn bản máy đọc được:**")
-                        st.success(final_extracted_text)
+                        st.success(extracted_text)
                         
-                        # Đã sửa lại điều kiện kiểm tra thông minh hơn
                         if "Lấy cách gõ phím" in che_do:
-                            ket_qua = GoogleTranslator(source='vi', target='ko').translate(final_extracted_text)
+                            ket_qua = GoogleTranslator(source='vi', target='ko').translate(extracted_text)
                             st.write("**Tiếng Hàn:**")
                             st.info(ket_qua)
                             st.write("**Cách gõ:**")
                             st.code(hangul_to_qwerty(ket_qua))
                         else:
-                            ket_qua = GoogleTranslator(source='auto', target='vi').translate(final_extracted_text)
+                            ket_qua = GoogleTranslator(source='auto', target='vi').translate(extracted_text)
                             st.write("**Nghĩa Việt:**")
                             st.info(ket_qua)
                     else:
-                        st.warning("Hệ thống không nhận diện được chữ nào trong bức ảnh này.")
+                        st.warning("Máy không đọc được chữ, hình như ảnh bị dính nền phức tạp hoặc quá mờ!")
                 except Exception as e:
-                    st.error(f"Lỗi: {e}")
+                    st.error(f"Lỗi: {e}. Vui lòng thử Reboot lại App!")
