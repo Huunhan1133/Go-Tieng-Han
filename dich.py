@@ -75,9 +75,12 @@ with col1:
         else: 
             st.warning("Bạn chưa nhập từ nào!")
 
+# ... (Giữ nguyên các hàm CHOSEONG_MAP, JUNGSEONG_MAP, JONGSEONG_MAP, hangul_to_qwerty và enhanced_image_processing ở trên đầu)
+
+# --- SỬA LẠI ĐOẠN DỊCH TỪ ẢNH TRONG CỘT 2 ---
 with col2:
     st.subheader("🖼️ Dịch từ Hình ảnh")
-    st.info("💡 Mẹo: Dùng công cụ chụp màn hình cắt thật sát vào chữ, bỏ bớt cảnh nền trong game đi để máy đọc chuẩn nhất nhé.")
+    st.info("💡 Mẹo: Cắt thật sát vào chữ để máy đọc chuẩn nhất.")
     
     paste_result = paste_image_button(label="📋 Bấm để Dán ảnh (Paste)", background_color="#FF4B4B")
     image_data = paste_result.image_data
@@ -104,15 +107,21 @@ with col2:
                         st.success(extracted_text)
                         
                         if "Lấy cách gõ phím" in che_do:
+                            # Dịch từ Việt sang Hàn
                             ket_qua = GoogleTranslator(source='vi', target='ko').translate(extracted_text)
                             st.write("**Tiếng Hàn:**")
                             st.info(ket_qua)
+                            # THÊM ĐOẠN NÀY ĐỂ HIỂN THỊ CÁCH GÕ
                             st.write("**Cách gõ:**")
                             st.code(hangul_to_qwerty(ket_qua))
                         else:
-                            ket_qua = GoogleTranslator(source='auto', target='vi').translate(extracted_text)
+                            # Dịch từ Hàn sang Việt
+                            ket_qua = GoogleTranslator(source='ko', target='vi').translate(extracted_text)
                             st.write("**Nghĩa Việt:**")
                             st.info(ket_qua)
+                            # Nếu bạn muốn hiển thị cách gõ cả khi dịch ngược:
+                            st.write("**Cách gõ của từ tiếng Hàn vừa dịch:**")
+                            st.code(hangul_to_qwerty(extracted_text))
                     else:
                         st.warning("Máy không đọc được chữ, hình như ảnh bị dính nền phức tạp hoặc quá mờ!")
                 except Exception as e:
