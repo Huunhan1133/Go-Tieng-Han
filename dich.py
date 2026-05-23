@@ -1,6 +1,9 @@
 import streamlit as st
-import google.generativeai as genai
+from deep_translator import GoogleTranslator
+import pytesseract
 from PIL import Image
+import cv2
+import numpy as np
 from streamlit_paste_button import paste_image_button
 
 # Bảng ánh xạ Jamo sang QWERTY
@@ -21,37 +24,21 @@ def hangul_to_qwerty(korean_text):
             result += char 
     return result
 
-# --- HÀM TÌM AI THÔNG MINH ---
-def get_best_model(api_key):
-    genai.configure(api_key=api_key)
-    available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-    
-    # Ưu tiên bản flash vì tốc độ cao và có gói miễn phí tốt
-    for m in available_models:
-        if 'flash' in m.lower():
-            return m
-            
-    for m in available_models:
-        if 'pro' not in m.lower():
-            return m
-            
-    if available_models:
-        return available_models[0]
-    return 'models/gemini-1.5-flash'
+def enhanced_image_processing(pil_image):
+    # Bộ lọc nội suy làm nét ảnh vỡ hạt
+    opencv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+    width, height = pil_image.size
+    enhanced_img = cv2.resize(opencv_img, (width * 2, height * 2), interpolation=cv2.INTER_LANCZOS4)
+    gray_img = cv2.cvtColor(enhanced_img, cv2.COLOR_BGR2GRAY)
+    blurred_img = cv2.GaussianBlur(gray_img, (5, 5), 0)
+    final_img = cv2.adaptiveThreshold(blurred_img, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+    return Image.fromarray(final_img)
 
 # --- GIAO DIỆN WEB ---
-st.set_page_config(page_title="Công Cụ Dịch Thuật AI", layout="wide") 
+st.set_page_config(page_title="Công Cụ Dịch Thuật Đa Năng", layout="wide") 
 
-try:
-    user_api_key = st.secrets["GEMINI_API_KEY"]
-except:
-    user_api_key = None
-
-st.title("🇰🇷 Công Cụ Dịch Đa Năng Tích Hợp AI")
-st.write("Sử dụng não bộ Trí tuệ Nhân tạo Google Gemini để quét ảnh và dịch thuật!")
-
-if not user_api_key:
-    st.error("⚠️ Hệ thống chưa tìm thấy API Key! Hãy vào phần Settings -> Secrets trên Streamlit Cloud để cấu hình biến GEMINI_API_KEY nhé.")
+st.title("🇰🇷 Công Cụ Dịch Đa Năng PRO (Bản Ổn Định)")
+st.write("Sử dụng mã nguồn mở 100%, không lo API limit, không giới hạn số lần dịch!")
 
 che_do = st.radio(
     "⚙️ Bạn muốn làm gì hôm nay?",
@@ -60,6 +47,7 @@ che_do = st.radio(
 )
 
 st.divider()
+
 col1, col2 = st.columns(2, gap="large")
 
 with col1:
@@ -67,65 +55,65 @@ with col1:
     tu_nhap = st.text_input("Nhập nội dung cần dịch:")
     
     if st.button("Dịch văn bản", type="secondary"):
-        if tu_nhap and user_api_key:
-            with st.spinner('AI đang suy nghĩ...'):
+        if tu_nhap:
+            with st.spinner('Đang dịch...'):
                 try:
-                    best_model_name = get_best_model(user_api_key)
-                    model = genai.GenerativeModel(best_model_name)
-                    
                     if "Lấy cách gõ phím" in che_do:
-                        prompt = f"Dịch câu sau sang tiếng Hàn, dùng văn phong game MMORPG cổ điển. Chỉ in kết quả dịch: '{tu_nhap}'"
-                        ket_qua = model.generate_content(prompt).text.strip()
-                        st.success(f"Dịch thành công! (Model: {best_model_name})")
+                        ket_qua = GoogleTranslator(source='vi', target='ko').translate(tu_nhap)
+                        st.success("Dịch thành công!")
+                        st.write("**Tiếng Hàn:**")
                         st.info(ket_qua)
+                        st.write("**Cách gõ:**")
                         st.code(hangul_to_qwerty(ket_qua))
                     else:
-                        prompt = f"Dịch câu tiếng Hàn sau sang tiếng Việt, chú ý các từ lóng và thuật ngữ. Chỉ in kết quả dịch: '{tu_nhap}'"
-                        ket_qua = model.generate_content(prompt).text.strip()
-                        st.success(f"Dịch thành công! (Model: {best_model_name})")
+                        ket_qua = GoogleTranslator(source='ko', target='vi').translate(tu_nhap)
+                        st.success("Dịch thành công!")
+                        st.write("**Nghĩa Việt:**")
                         st.info(ket_qua)
-                except Exception as e:
-                    st.error(f"Lỗi AI: {e}")
-        elif not tu_nhap: 
+                except Exception as e: 
+                    st.error(f"Lỗi dịch: {e}")
+        else: 
             st.warning("Bạn chưa nhập từ nào!")
 
 with col2:
-    st.subheader("🖼️ Dịch từ Hình ảnh (AI Vision)")
-    paste_result = paste_image_button(label="📋 Bấm để Dán ảnh", background_color="#FF4B4B")
+    st.subheader("🖼️ Dịch từ Hình ảnh")
+    st.info("💡 Mẹo: Dùng công cụ chụp màn hình cắt thật sát vào chữ, bỏ bớt cảnh nền trong game đi để máy đọc chuẩn nhất nhé.")
+    
+    paste_result = paste_image_button(label="📋 Bấm để Dán ảnh (Paste)", background_color="#FF4B4B")
     image_data = paste_result.image_data
 
     if image_data is not None:
-        st.image(image_data, caption="Ảnh bạn dán", use_container_width=True)
+        st.image(image_data, caption="Ảnh bạn vừa dán lên", use_container_width=True)
         
-        if st.button("AI Quét Ảnh & Dịch", type="primary"):
-            if user_api_key:
-                with st.spinner('AI đang dùng MẮT THẦN nhìn vào ảnh...'):
-                    try:
-                        best_model_name = get_best_model(user_api_key)
-                        model = genai.GenerativeModel(best_model_name)
-                        
-                        # CHUẨN HÓA VÀ NÉN ẢNH ĐỂ TRÁNH LỖI ĐỊNH DẠNG / QUOTA TOKENS
-                        img_input = image_data.convert("RGB")
-                        img_input.thumbnail((1024, 1024)) # Giới hạn cạnh dài nhất tối đa 1024px để giảm tải tokens
+        if st.button("Quét & Dịch qua Ảnh", type="primary"):
+            with st.spinner('Đang quét chữ...'):
+                try:
+                    processed_image = enhanced_image_processing(image_data)
+                    
+                    if "Lấy cách gõ phím" in che_do:
+                        ngon_ngu = 'vie'
+                        config = '--psm 6'
+                    else:
+                        ngon_ngu = 'kor'
+                        config = '--psm 6'
+                    
+                    extracted_text = pytesseract.image_to_string(processed_image, lang=ngon_ngu, config=config).strip()
+                    
+                    if extracted_text:
+                        st.write("**Văn bản máy đọc được:**")
+                        st.success(extracted_text)
                         
                         if "Lấy cách gõ phím" in che_do:
-                            prompt = "Hãy đọc chữ tiếng Việt trong bức ảnh này và dịch nó sang tiếng Hàn. Trình bày làm 2 dòng:\nChữ gốc: [chữ đọc được]\nDịch sang Hàn: [chữ dịch]"
+                            ket_qua = GoogleTranslator(source='vi', target='ko').translate(extracted_text)
+                            st.write("**Tiếng Hàn:**")
+                            st.info(ket_qua)
+                            st.write("**Cách gõ:**")
+                            st.code(hangul_to_qwerty(ket_qua))
                         else:
-                            prompt = "Hãy nhìn vào bức ảnh này, đây là ảnh từ game MMORPG cổ điển với phông chữ dạng pixel vỡ hạt. Hãy đọc chữ tiếng Hàn/Nhật trong ảnh và dịch sang tiếng Việt sát nghĩa nhất. Trình bày làm 2 dòng:\nChữ gốc máy đọc được: [chữ đọc được]\nNghĩa Tiếng Việt: [chữ dịch]"
-                        
-                        response = model.generate_content([prompt, img_input])
-                        
-                        st.success(f"Mắt Thần đã phân tích xong! (Model: {best_model_name})")
-                        st.write(response.text)
-                        
-                        if "Lấy cách gõ phím" in che_do:
-                            lines = response.text.split('\n')
-                            for line in lines:
-                                if "Dịch sang Hàn:" in line:
-                                    korean_text = line.replace("Dịch sang Hàn:", "").strip()
-                                    st.write("**Cách gõ phím:**")
-                                    st.code(hangul_to_qwerty(korean_text))
-                                    
-                    except Exception as e:
-                        # Hiện thông báo lỗi chi tiết để dễ debug
-                        st.error(f"❌ Lỗi xử lý ảnh từ hệ thống: {e}")
+                            ket_qua = GoogleTranslator(source='auto', target='vi').translate(extracted_text)
+                            st.write("**Nghĩa Việt:**")
+                            st.info(ket_qua)
+                    else:
+                        st.warning("Máy không đọc được chữ, hình như ảnh bị dính nền phức tạp hoặc quá mờ!")
+                except Exception as e:
+                    st.error(f"Lỗi: {e}. Vui lòng thử Reboot lại App!")

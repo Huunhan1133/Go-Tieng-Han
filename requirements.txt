@@ -1,4 +1,6 @@
+deep-translator
+pytesseract
 Pillow
 streamlit-paste-button
-google-generativeai>=0.5.2
-streamlit
+opencv-python-headless
+numpy
